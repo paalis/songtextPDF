@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tekstark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  /* Layout: kontrollpanel til venstre, levende arkvisning til høyre. Ett primærhandling: Last ned PDF. */
+  --bg: #eef0f4;
+  --panel: #ffffff;
+  --ink: #17202c;
+  --muted: #596473;
+  --line: #d5dae2;
+  --field: #f4f6f9;
+  --stage: #d9dee6;
+  --accent: #0d6b63;
+  --accent-ink: #ffffff;
+  --danger: #b3261e;
+  --font-ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161c; --panel: #1a2029; --ink: #e8ecf2; --muted: #9aa5b4; --line: #2c3441;
+    --field: #232b36; --stage: #0e1115; --accent: #46c4b2; --accent-ink: #06211d; --danger: #ff8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161c; --panel: #1a2029; --ink: #e8ecf2; --muted: #9aa5b4; --line: #2c3441;
+  --field: #232b36; --stage: #0e1115; --accent: #46c4b2; --accent-ink: #06211d; --danger: #ff8a80;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 400 14px/1.45 var(--font-ui); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+
+.top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand svg { flex: none; color: var(--accent); }
+.brand h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.brand span { color: var(--muted); font-size: 13px; }
+.actions { display: flex; align-items: center; gap: 12px; }
+.status { color: var(--muted); font-size: 13px; min-height: 1em; }
+.status.err { color: var(--danger); }
+
+.btn {
+  border: 1px solid var(--line); background: var(--field); border-radius: 8px;
+  padding: 7px 12px; cursor: pointer; font-weight: 500; line-height: 1.2;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); padding: 9px 16px; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.small { padding: 5px 10px; font-size: 13px; }
+
+.main { display: grid; grid-template-columns: 400px minmax(0, 1fr); min-height: 0; }
+.controls {
+  overflow: auto; padding: 16px; background: var(--panel); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 22px; min-width: 0;
+}
+.stage { overflow: auto; background: var(--stage); padding: 14px 16px 48px; min-width: 0; }
+
+.group { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.group h2 {
+  margin: 0; padding-bottom: 6px; border-bottom: 1px solid var(--line);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted);
+}
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field > label, .field > .lab { font-weight: 500; font-size: 13px; }
+.field .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.field output { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hint { color: var(--muted); font-size: 12px; margin: 0; }
+
+input[type="text"], select, textarea {
+  width: 100%; background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+}
+textarea { resize: vertical; min-height: 230px; line-height: 1.5; }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 2px 0; }
+input[type="color"] { width: 44px; height: 30px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); cursor: pointer; }
+.check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; font-size: 13px; }
+.check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.inline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+.seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--field); }
+.seg button { flex: 1; border: 0; background: transparent; padding: 7px 8px; cursor: pointer; border-right: 1px solid var(--line); }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--field); border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.btnrow { display: flex; gap: 8px; }
+
+.info { position: sticky; top: -14px; z-index: 2; margin: -14px -16px 14px; padding: 8px 16px; background: var(--stage); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.pages { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+.sheet { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.sheet canvas { display: block; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 10px 28px rgba(0,0,0,.14); }
+.sheet figcaption { color: var(--muted); font-size: 12px; }
+.banner { background: var(--panel); border: 1px solid var(--danger); color: var(--danger); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+
+@media (max-width: 860px) {
+  .main { grid-template-columns: minmax(0, 1fr); overflow: auto; }
+  .controls { overflow: visible; border-right: 0; border-bottom: 1px solid var(--line); }
+  .stage { overflow: visible; }
+  .info { position: static; margin-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="4.5" y="2.5" width="17" height="21" rx="2.5" stroke="currentColor" stroke-width="2"/>
+        <path d="M8.5 8.5h9M8.5 12.5h9M8.5 16.5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h1>Tekstark</h1>
+      <span>Sangtekst til PDF</span>
+    </div>
+    <div class="actions">
+      <span id="status" class="status" role="status" aria-live="polite"></span>
+      <button id="download" class="btn primary" type="button">Last ned PDF</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <aside class="controls" id="controls" aria-label="Innstillinger"></aside>
+    <section class="stage" id="stage" aria-label="Forhåndsvisning">
+      <div class="info" id="info"></div>
+      <div id="banner"></div>
+      <div class="pages" id="pages"></div>
+    </section>
+  </div>
+</div>
+
+<script src="vendor/jspdf.umd.min.js"></script>
+<script>
+/* CORE START */
+const MM_PT = 25.4 / 72;
+const PAPERS = { A4: [210, 297], A5: [148, 210], A6: [105, 148], Letter: [215.9, 279.4] };
+
+const SAMPLE = `[Verse 1]
+Amazing grace! How sweet the sound
+That saved a wretch like me!
+I once was lost, but now am found;
+Was blind, but now I see.
+
+[Verse 2]
+'Twas grace that taught my heart to fear,
+And grace my fears relieved;
+How precious did that grace appear
+The hour I first believed.
+
+[Verse 3]
+Through many dangers, toils, and snares,
+I have already come;
+'Tis grace hath brought me safe thus far,
+And grace will lead me home.`;
+
+const STYLE_KEYS = ['paper','orient','margin','cols','fit','font','size','spacing','gap','align','keep','color',
+  'showTitle','titleSize','titleAlign','rule','accent','detect','secStyle','pageNum','footer'];
+
+const DEFAULTS = {
+  title: 'Amazing Grace', artist: 'John Newton', lyrics: SAMPLE,
+  paper: 'A4', orient: 'portrait', margin: 18, cols: 1, fit: false,
+  font: 'helvetica', size: 14, spacing: 1.35, gap: 1, align: 'left', keep: true, color: '#111111',
+  showTitle: true, titleSize: 26, titleAlign: 'left', rule: true, accent: '#0d6b63',
+  detect: true, secStyle: 'bold', pageNum: false, footer: ''
+};
+
+const PRESETS = {
+  'Standard': {},
+  'Scene, stor tekst': { size: 24, spacing: 1.3, gap: 1, cols: 1, fit: true, margin: 14, align: 'center',
+    titleAlign: 'center', titleSize: 32, secStyle: 'caps', rule: false, pageNum: false },
+  'Kompakt, 2 kolonner': { size: 11, spacing: 1.25, gap: 0.8, cols: 2, fit: false, margin: 14,
+    titleSize: 20, align: 'left', titleAlign: 'left' },
+  'Klassisk': { font: 'times', size: 15, spacing: 1.5, gap: 1.2, cols: 1, fit: false, margin: 22,
+    align: 'center', titleAlign: 'center', titleSize: 28, secStyle: 'italic', rule: true, accent: '#7a2b34', color: '#222222' }
+};
+
+function pageDims(cfg) {
+  const p = PAPERS[cfg.paper] || PAPERS.A4;
+  return cfg.orient === 'landscape' ? [p[1], p[0]] : [p[0], p[1]];
+}
+function hexToRgb(h) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(h || '');
+  const n = m ? parseInt(m[1], 16) : 0;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/* PDF-ens standardskrifter dekker Latin-1 (æøå, é, ü …). Resten forenkles. */
+function sanitize(s) {
+  s = String(s == null ? '' : s).replace(/\r\n?/g, '\n').replace(/\t/g, '    ')
+    .replace(/[‘’‛ʼ′]/g, "'")
+    .replace(/[“”„″]/g, '"')
+    .replace(/[–—−]/g, '-')
+    .replace(/…/g, '...')
+    .replace(/[    ]/g, ' ')
+    .replace(/[​-‍⁠﻿]/g, '');
+  let out = '';
+  for (const ch of s) {
+    const c = ch.codePointAt(0);
+    if (ch === '\n' || (c >= 32 && c < 127) || (c >= 160 && c <= 255)) out += ch;
+    else if (c < 32 || (c >= 127 && c < 160)) continue;
+    else {
+      const b = ch.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      out += (b.length && b.codePointAt(0) <= 255 && b !== ch) ? b : '?';
+    }
+  }
+  return out;
+}
+
+const SEC = '(?:vers|verse|refreng|chorus|bro|bridge|intro|outro|pre-?chorus|pre-?refreng|kor|hook|instrumental|solo|interlude|mellomspill|tag|coda)';
+const RE_BR = new RegExp('^\\s*[\\[(]\\s*(' + SEC + '\\b[^\\]\\)]{0,24}?)\\s*[\\])]\\s*:?\\s*$', 'i');
+const RE_WD = new RegExp('^\\s*(' + SEC + '(?:\\s*\\d{1,2})?)\\s*:?\\s*$', 'i');
+function headingOf(line) {
+  const m = RE_BR.exec(line) || RE_WD.exec(line);
+  return m ? m[1].trim() : null;
+}
+
+function parseStanzas(text, detect) {
+  const stanzas = [];
+  let cur = [];
+  const flush = () => { if (cur.length) stanzas.push(cur); cur = []; };
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/\s+$/, '');
+    if (!line.trim()) { flush(); continue; }
+    const h = detect ? headingOf(line) : null;
+    cur.push(h !== null ? { text: h, heading: true } : { text: line, heading: false });
+  }
+  flush();
+  const out = [];
+  for (let i = 0; i < stanzas.length; i++) {
+    let s = stanzas[i];
+    while (s.every(x => x.heading) && i + 1 < stanzas.length) { i++; s = s.concat(stanzas[i]); }
+    out.push(s);
+  }
+  return out;
+}
+
+function wrapLine(text, maxW, m, contIndent) {
+  if (m(text) <= maxW) return [text];
+  const lead = text.match(/^ */)[0];
+  const words = text.trim().split(/ +/);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const prefix = lines.length ? contIndent : lead;
+    const test = cur === '' ? prefix + w : cur + ' ' + w;
+    if (m(test) <= maxW) { cur = test; continue; }
+    if (cur !== '') { lines.push(cur); }
+    cur = (lines.length ? contIndent : lead) + w;
+    let guard = 0;
+    while (m(cur) > maxW && cur.length > contIndent.length + 1 && guard++ < 500) {
+      const minK = contIndent.length + 1;
+      let k = cur.length - 1;
+      while (k > minK && m(cur.slice(0, k)) > maxW) k--;
+      lines.push(cur.slice(0, k));
+      cur = contIndent + cur.slice(k);
+    }
+  }
+  if (cur !== '') lines.push(cur);
+  return lines;
+}
+
+function layout(cfg, rawText, measureRaw, sizeOverride) {
+  const [pw, ph] = pageDims(cfg);
+  const m = cfg.margin;
+  const contentW = pw - 2 * m;
+  const size = sizeOverride || cfg.size;
+  const fm = size * MM_PT;
+  const lineH = fm * cfg.spacing;
+  const ms = (style, sz, s) => measureRaw(cfg.font, style, sz, s);
+  const ops = [];
+  const footerText = sanitize(cfg.footer).replace(/\n/g, ' ').trim();
+  const hasFooter = !!(cfg.pageNum || footerText);
+  const bottom = ph - m - (hasFooter ? 7 : 0);
+  const eps = 0.01;
+  let y = m;
+
+  /* Tittel */
+  const title = sanitize(cfg.title).replace(/\n/g, ' ').trim();
+  const artist = sanitize(cfg.artist).replace(/\n/g, ' ').trim();
+  if (cfg.showTitle && (title || artist)) {
+    const centered = cfg.titleAlign === 'center';
+    if (title) {
+      const ts = cfg.titleSize, tf = ts * MM_PT;
+      for (const r of wrapLine(title, contentW, s => ms('bold', ts, s), '')) {
+        const w = ms('bold', ts, r);
+        ops.push({ t: 'text', p: 0, x: centered ? m + (contentW - w) / 2 : m, y: y + tf * 0.85, text: r, style: 'bold', size: ts, color: cfg.color });
+        y += tf * 1.15;
+      }
+    }
+    if (artist) {
+      const as = Math.max(9, Math.round(cfg.titleSize * 0.5 * 2) / 2), af = as * MM_PT;
+      y += 1.2;
+      for (const r of wrapLine(artist, contentW, s => ms('normal', as, s), '')) {
+        const w = ms('normal', as, r);
+        ops.push({ t: 'text', p: 0, x: centered ? m + (contentW - w) / 2 : m, y: y + af * 0.85, text: r, style: 'normal', size: as, color: '#5a6270' });
+        y += af * 1.25;
+      }
+    }
+    if (cfg.rule) {
+      y += 2.5;
+      ops.push({ t: 'rule', p: 0, x1: m, x2: pw - m, y, color: cfg.accent, w: 0.5 });
+      y += 0.5;
+    }
+    y += 5;
+  }
+  const bodyTop1 = y;
+
+  /* Kolonner */
+  const wantCols = Math.max(1, Math.min(3, cfg.cols | 0));
+  const gutter = 8;
+  const n = Math.max(1, Math.min(wantCols, Math.floor((contentW + gutter) / (20 + gutter))));
+  const colW = (contentW - gutter * (n - 1)) / n;
+  const colX = c => m + c * (colW + gutter);
+  const top = p => (p === 0 ? bodyTop1 : m);
+
+  let page = 0, col = 0, cy = top(0);
+  const atTop = () => Math.abs(cy - top(page)) < eps;
+  const newCol = () => { col++; if (col >= n) { col = 0; page++; } cy = top(page); };
+
+  const left = cfg.align !== 'center';
+  const contIndent = left ? '  ' : '';
+  const gapH = lineH * cfg.gap;
+  const stanzas = parseStanzas(sanitize(rawText), cfg.detect);
+
+  for (const stanza of stanzas) {
+    const rows = [];
+    for (const it of stanza) {
+      let style = 'normal', txt = it.text;
+      if (it.heading) {
+        style = cfg.secStyle === 'italic' ? 'italic' : 'bold';
+        if (cfg.secStyle === 'caps') txt = txt.toUpperCase();
+      } else if (!left) txt = txt.trim();
+      for (const r of wrapLine(txt, colW, s => ms(style, size, s), contIndent)) rows.push({ text: r, heading: it.heading, style });
+    }
+    const H = rows.length * lineH;
+    let gap = atTop() ? 0 : gapH;
+    if (cfg.keep && !atTop() && cy + gap + H > bottom + eps && H <= bottom - m + eps) { newCol(); gap = 0; }
+    cy += gap;
+    rows.forEach((r, i) => {
+      const need = (r.heading && i < rows.length - 1) ? 2 * lineH : lineH;
+      if (cy + need > bottom + eps && !atTop()) newCol();
+      const w = ms(r.style, size, r.text);
+      const x = left ? colX(col) : colX(col) + (colW - w) / 2;
+      ops.push({ t: 'text', p: page, x, y: cy + (lineH - fm) / 2 + fm * 0.8, text: r.text, style: r.style, size,
+        color: r.heading ? cfg.accent : cfg.color });
+      cy += lineH;
+    });
+  }
+
+  const pages = page + 1;
+
+  /* Bunntekst */
+  if (hasFooter) {
+    const fs = 8, base = bottom + 4.8;
+    for (let p = 0; p < pages; p++) {
+      if (footerText) ops.push({ t: 'text', p, x: m, y: base, text: footerText, style: 'normal', size: fs, color: '#6b7380' });
+      if (cfg.pageNum) {
+        const label = pages > 1 ? (p + 1) + ' / ' + pages : String(p + 1);
+        const w = ms('normal', fs, label);
+        ops.push({ t: 'text', p, x: pw - m - w, y: base, text: label, style: 'normal', size: fs, color: '#6b7380' });
+      }
+    }
+  }
+  return { pages, ops, size, pw, ph, columns: n };
+}
+
+function layoutFit(cfg, text, measureRaw) {
+  const first = layout(cfg, text, measureRaw, cfg.size);
+  if (!cfg.fit || first.pages === 1) return first;
+  let lo = 5, hi = cfg.size;
+  const low = layout(cfg, text, measureRaw, lo);
+  if (low.pages > 1) return low;
+  for (let i = 0; i < 14; i++) {
+    const mid = (lo + hi) / 2;
+    if (layout(cfg, text, measureRaw, mid).pages === 1) lo = mid; else hi = mid;
+  }
+  const sz = Math.floor(lo * 4) / 4;
+  const r = layout(cfg, text, measureRaw, sz);
+  return r.pages === 1 ? r : layout(cfg, text, measureRaw, lo);
+}
+
+function buildPdf(jsPDF, res, cfg) {
+  const lo = Math.min(res.pw, res.ph), hi = Math.max(res.pw, res.ph);
+  const orientation = res.pw > res.ph ? 'landscape' : 'portrait';
+  const doc = new jsPDF({ unit: 'mm', format: [lo, hi], orientation, compress: true });
+  doc.setProperties({ title: sanitize(cfg.title) || 'Sangtekst', creator: 'Tekstark' });
+  for (let p = 0; p < res.pages; p++) {
+    if (p > 0) doc.addPage([lo, hi], orientation);
+    for (const o of res.ops) {
+      if (o.p !== p) continue;
+      if (o.t === 'text') {
+        doc.setFont(cfg.font, o.style);
+        doc.setFontSize(o.size);
+        const c = hexToRgb(o.color);
+        doc.setTextColor(c[0], c[1], c[2]);
+        doc.text(o.text, o.x, o.y);
+      } else {
+        const c = hexToRgb(o.color);
+        doc.setDrawColor(c[0], c[1], c[2]);
+        doc.setLineWidth(o.w);
+        doc.line(o.x1, o.y, o.x2, o.y);
+      }
+    }
+  }
+  return doc;
+}
+/* CORE END */
+
+/* UI */
+(function () {
+  const JSPDF = window.jspdf && window.jspdf.jsPDF;
+  const $ = id => document.getElementById(id);
+  const FAMILY = {
+    helvetica: "Helvetica, Arial, 'Liberation Sans', sans-serif",
+    times: "'Times New Roman', Times, 'Liberation Serif', serif",
+    courier: "'Courier New', Courier, 'Liberation Mono', monospace"
+  };
+  const STORE = 'tekstark:v1';
+
+  let S = Object.assign({}, DEFAULTS);
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (saved && typeof saved === 'object') S = Object.assign(S, saved);
+  } catch (e) { /* ingen lagring tilgjengelig */ }
+
+  const SCHEMA = [
+    { group: 'Sang', items: [
+      { k: 'title', type: 'text', label: 'Tittel' },
+      { k: 'artist', type: 'text', label: 'Artist eller forfatter' },
+      { k: 'lyrics', type: 'area', label: 'Sangtekst', hint: 'Lim inn teksten her. Tomme linjer deler opp versene. Linjer som [Vers 1] eller Refreng: blir overskrifter.' }
+    ] },
+    { group: 'Side', items: [
+      { k: 'paper', type: 'select', label: 'Papir', opts: [['A4', 'A4'], ['A5', 'A5'], ['A6', 'A6'], ['Letter', 'Letter']] },
+      { k: 'orient', type: 'seg', label: 'Retning', opts: [['portrait', 'Stående'], ['landscape', 'Liggende']] },
+      { k: 'cols', type: 'seg', label: 'Kolonner', opts: [[1, '1'], [2, '2'], [3, '3']], num: true },
+      { k: 'margin', type: 'range', label: 'Marger', min: 6, max: 35, step: 1, unit: 'mm', dec: 0 },
+      { k: 'fit', type: 'check', label: 'Krymp teksten til én side' }
+    ] },
+    { group: 'Tekst', items: [
+      { k: 'font', type: 'select', label: 'Skrift', opts: [['helvetica', 'Helvetica (sans-serif)'], ['times', 'Times (serif)'], ['courier', 'Courier (fast bredde)']] },
+      { k: 'size', type: 'range', label: 'Størrelse', min: 8, max: 40, step: 0.5, unit: 'pt', dec: 1 },
+      { k: 'spacing', type: 'range', label: 'Linjeavstand', min: 1, max: 2.2, step: 0.05, unit: '×', dec: 2 },
+      { k: 'gap', type: 'range', label: 'Luft mellom vers', min: 0, max: 2.5, step: 0.1, unit: 'linjer', dec: 1 },
+      { k: 'align', type: 'seg', label: 'Justering', opts: [['left', 'Venstre'], ['center', 'Midtstilt']] },
+      { k: 'keep', type: 'check', label: 'Hold hvert vers samlet' },
+      { k: 'color', type: 'color', label: 'Tekstfarge' }
+    ] },
+    { group: 'Tittel', items: [
+      { k: 'showTitle', type: 'check', label: 'Vis tittel og artist' },
+      { k: 'titleSize', type: 'range', label: 'Tittelstørrelse', min: 14, max: 48, step: 1, unit: 'pt', dec: 0 },
+      { k: 'titleAlign', type: 'seg', label: 'Tittel justert', opts: [['left', 'Venstre'], ['center', 'Midtstilt']] },
+      { k: 'rule', type: 'check', label: 'Strek under tittelen' },
+      { k: 'accent', type: 'color', label: 'Aksentfarge (strek og overskrifter)' }
+    ] },
+    { group: 'Vers og refreng', items: [
+      { k: 'detect', type: 'check', label: 'Gjenkjenn overskrifter (Vers, Refreng, Bro …)' },
+      { k: 'secStyle', type: 'select', label: 'Overskriftsstil', opts: [['bold', 'Fet'], ['caps', 'FET MED VERSALER'], ['italic', 'Kursiv']] }
+    ] },
+    { group: 'Bunn', items: [
+      { k: 'pageNum', type: 'check', label: 'Sidetall' },
+      { k: 'footer', type: 'text', label: 'Bunntekst' }
+    ] }
+  ];
+
+  const fmt = (v, d) => Number(v).toLocaleString('nb-NO', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+  function el(tag, attrs, kids) {
+    const e = document.createElement(tag);
+    for (const k in (attrs || {})) {
+      if (k === 'class') e.className = attrs[k];
+      else if (k === 'text') e.textContent = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    }
+    (kids || []).forEach(c => e.appendChild(c));
+    return e;
+  }
+
+  /* Bygg kontrollpanelet */
+  function build() {
+    const host = $('controls');
+
+    const pre = el('section', { class: 'group' }, [el('h2', { text: 'Forhåndsinnstillinger' })]);
+    const chips = el('div', { class: 'presets' });
+    Object.keys(PRESETS).forEach(name => {
+      const b = el('button', { type: 'button', class: 'chip', text: name });
+      b.addEventListener('click', () => {
+        const base = {};
+        STYLE_KEYS.forEach(k => { base[k] = DEFAULTS[k]; });
+        Object.assign(S, base, PRESETS[name]);
+        syncUI(); schedule();
+      });
+      chips.appendChild(b);
+    });
+    pre.appendChild(chips);
+    host.appendChild(pre);
+
+    SCHEMA.forEach(g => {
+      const sec = el('section', { class: 'group' }, [el('h2', { text: g.group })]);
+      g.items.forEach(f => {
+        const id = 'f-' + f.k;
+        let field;
+        if (f.type === 'check') {
+          const input = el('input', { type: 'checkbox', id, 'data-k': f.k });
+          field = el('div', { class: 'field' }, [el('label', { class: 'check', for: id }, [input, document.createTextNode(f.label)])]);
+        } else if (f.type === 'range') {
+          const out = el('output', { id: 'o-' + f.k, for: id });
+          const input = el('input', { type: 'range', id, 'data-k': f.k, min: f.min, max: f.max, step: f.step });
+          field = el('div', { class: 'field' }, [el('div', { class: 'row' }, [el('label', { for: id, text: f.label }), out]), input]);
+        } else if (f.type === 'seg') {
+          const seg = el('div', { class: 'seg', role: 'group', 'aria-label': f.label, id });
+          f.opts.forEach(o => seg.appendChild(el('button', { type: 'button', 'data-k': f.k, 'data-v': String(o[0]), text: o[1], 'aria-pressed': 'false' })));
+          field = el('div', { class: 'field' }, [el('span', { class: 'lab', text: f.label }), seg]);
+        } else if (f.type === 'select') {
+          const sel = el('select', { id, 'data-k': f.k });
+          f.opts.forEach(o => sel.appendChild(el('option', { value: o[0], text: o[1] })));
+          field = el('div', { class: 'field' }, [el('label', { for: id, text: f.label }), sel]);
+        } else if (f.type === 'color') {
+          const input = el('input', { type: 'color', id, 'data-k': f.k });
+          field = el('div', { class: 'field inline' }, [el('label', { for: id, text: f.label }), input]);
+        } else if (f.type === 'area') {
+          const ta = el('textarea', { id, 'data-k': f.k, spellcheck: 'false', rows: '12' });
+          const row = el('div', { class: 'btnrow' });
+          const ex = el('button', { type: 'button', class: 'btn small', text: 'Eksempel' });
+          const cl = el('button', { type: 'button', class: 'btn small', text: 'Tøm' });
+          ex.addEventListener('click', () => { S.title = DEFAULTS.title; S.artist = DEFAULTS.artist; S.lyrics = SAMPLE; syncUI(); schedule(); });
+          cl.addEventListener('click', () => { S.title = ''; S.artist = ''; S.lyrics = ''; syncUI(); schedule(); $('f-lyrics').focus(); });
+          row.appendChild(ex); row.appendChild(cl);
+          field = el('div', { class: 'field' }, [el('label', { for: id, text: f.label }), ta, row, el('p', { class: 'hint', text: f.hint })]);
+        } else {
+          field = el('div', { class: 'field' }, [el('label', { for: id, text: f.label }), el('input', { type: 'text', id, 'data-k': f.k })]);
+        }
+        sec.appendChild(field);
+      });
+      host.appendChild(sec);
+    });
+
+    host.addEventListener('input', e => {
+      const t = e.target, k = t.getAttribute && t.getAttribute('data-k');
+      if (!k) return;
+      const def = findDef(k);
+      if (t.type === 'checkbox') S[k] = t.checked;
+      else if (def && def.type === 'range') { S[k] = parseFloat(t.value); showOut(def); }
+      else S[k] = t.value;
+      schedule();
+    });
+    host.addEventListener('click', e => {
+      const b = e.target.closest && e.target.closest('.seg button');
+      if (!b) return;
+      const k = b.getAttribute('data-k'), def = findDef(k), v = b.getAttribute('data-v');
+      S[k] = def.num ? parseInt(v, 10) : v;
+      syncUI(); schedule();
+    });
+  }
+
+  function findDef(k) {
+    for (const g of SCHEMA) for (const f of g.items) if (f.k === k) return f;
+    return null;
+  }
+  function showOut(def) {
+    const o = $('o-' + def.k);
+    if (o) o.textContent = fmt(S[def.k], def.dec) + ' ' + def.unit;
+  }
+  function syncUI() {
+    SCHEMA.forEach(g => g.items.forEach(f => {
+      const c = $('f-' + f.k);
+      if (f.type === 'check') c.checked = !!S[f.k];
+      else if (f.type === 'seg') {
+        c.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.getAttribute('data-v') === String(S[f.k]))));
+      } else if (f.type === 'range') { c.value = S[f.k]; showOut(f); }
+      else c.value = S[f.k];
+    }));
+  }
+
+  /* Måling med jsPDF slik at forhåndsvisning og PDF bruker samme skriftmetrikk */
+  let mdoc = null;
+  const mcache = new Map();
+  function measure(font, style, size, s) {
+    const key = font + '|' + style + '|' + size + '|' + s;
+    let v = mcache.get(key);
+    if (v !== undefined) return v;
+    if (!mdoc) mdoc = new JSPDF({ unit: 'mm' });
+    mdoc.setFont(font, style);
+    mdoc.setFontSize(size);
+    v = mdoc.getTextWidth(s);
+    if (mcache.size > 60000) mcache.clear();
+    mcache.set(key, v);
+    return v;
+  }
+
+  /* Forhåndsvisning */
+  let current = null;
+  function paint(res) {
+    const pagesEl = $('pages');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const avail = Math.max(260, Math.min(820, $('stage').clientWidth - 32));
+    const k = avail / res.pw;
+    while (pagesEl.children.length > res.pages) pagesEl.lastChild.remove();
+    while (pagesEl.children.length < res.pages) {
+      const fig = el('figure', { class: 'sheet' }, [el('canvas'), el('figcaption')]);
+      pagesEl.appendChild(fig);
+    }
+    for (let p = 0; p < res.pages; p++) {
+      const fig = pagesEl.children[p];
+      const cv = fig.querySelector('canvas');
+      const w = Math.round(avail), h = Math.round(res.ph * k);
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+      cv.style.width = w + 'px'; cv.style.height = h + 'px';
+      fig.querySelector('figcaption').textContent = 'Side ' + (p + 1) + (res.pages > 1 ? ' av ' + res.pages : '');
+      const ctx = cv.getContext('2d');
+      const s = (cv.width) / res.pw;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.textBaseline = 'alphabetic';
+      for (const o of res.ops) {
+        if (o.p !== p) continue;
+        if (o.t === 'text') {
+          const css = (o.style === 'bold' ? 'bold ' : o.style === 'italic' ? 'italic ' : o.style === 'bolditalic' ? 'italic bold ' : '');
+          ctx.font = css + (o.size * MM_PT * s) + 'px ' + FAMILY[S.font];
+          ctx.fillStyle = o.color;
+          ctx.fillText(o.text, o.x * s, o.y * s);
+        } else {
+          ctx.strokeStyle = o.color;
+          ctx.lineWidth = o.w * s;
+          ctx.beginPath(); ctx.moveTo(o.x1 * s, o.y * s); ctx.lineTo(o.x2 * s, o.y * s); ctx.stroke();
+        }
+      }
+    }
+  }
+
+  let raf = 0, saveTimer = 0;
+  function schedule() { cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }
+  function update() {
+    if (!JSPDF) return;
+    const res = layoutFit(S, S.lyrics, measure);
+    current = res;
+    paint(res);
+    let info = res.pages + (res.pages === 1 ? ' side' : ' sider') + ' · ' + S.paper + (S.orient === 'landscape' ? ' liggende' : ' stående') + ' · ' + fmt(res.size, res.size % 1 ? 2 : 1) + ' pt';
+    if (S.fit && res.size < S.size - 0.01) info += ' (krympet fra ' + fmt(S.size, 1) + ' pt)';
+    if (S.fit && res.pages > 1) info += ' · får ikke plass på én side, selv ved minste størrelse';
+    $('info').textContent = info;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) { /* hopp over */ } }, 400);
+  }
+
+  /* Nedlasting */
+  let dl = null;
+  if (window.claude && typeof window.claude.use === 'function') {
+    window.claude.use('downloads').then(c => { dl = c; }).catch(() => {});
+  }
+  function say(msg, isErr) {
+    const s = $('status');
+    s.textContent = msg; s.className = 'status' + (isErr ? ' err' : '');
+    clearTimeout(say.t);
+    if (msg) say.t = setTimeout(() => { s.textContent = ''; }, 6000);
+  }
+  async function savePdf() {
+    if (!JSPDF || !current) { say('PDF-biblioteket er ikke lastet.', true); return; }
+    const res = layoutFit(S, S.lyrics, measure);
+    const doc = buildPdf(JSPDF, res, S);
+    const base = sanitize(S.title).replace(/[^\p{L}\p{N} _-]+/gu, '').trim().replace(/\s+/g, '-') || 'sangtekst';
+    const name = base + '.pdf';
+    if (!dl) {
+      try { doc.save(name); say('PDF lagret.'); } catch (e) { say('Kunne ikke lagre PDF-en.', true); }
+      return;
+    }
+    try {
+      await dl.save({ filename: name, data: doc.output('arraybuffer') });
+      say('PDF lagret.');
+    } catch (e) {
+      const code = e && e.code;
+      if (code === 'declined') say('Nedlastingen ble avbrutt.');
+      else if (code === 'host_unavailable' || code === 'unavailable') say('Denne visningen kan ikke lagre filer. Åpne siden i en nettleser.', true);
+      else say('Kunne ikke lagre PDF-en' + (code ? ' (' + code + ')' : '') + '.', true);
+    }
+  }
+
+  build();
+  syncUI();
+  $('download').addEventListener('click', savePdf);
+  if (!JSPDF) {
+    $('banner').appendChild(el('div', { class: 'banner', text: 'Kunne ikke laste PDF-biblioteket. Sjekk nettforbindelsen og last siden på nytt.' }));
+  } else {
+    update();
+    if (window.ResizeObserver) new ResizeObserver(() => schedule()).observe($('stage'));
+    else window.addEventListener('resize', schedule);
+  }
+})();
+</script>
+</body>
+</html>
